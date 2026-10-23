@@ -13,6 +13,13 @@ MIN_LENGTH, MAX_LENGTH = 1e-18, 1e12      # metres
 MIN_MASS, MAX_MASS = 1e-40, 1e10          # kilograms
 MAX_N = 10**6                             # largest supported quantum number
 
+# FIX: largest quantum numbers for which the graphs are still reliable.
+# Above these, the graph would be aliased (too few points per lobe) or would
+# need millions of nodal lines, so the graph is skipped. Numbers are unaffected.
+PLOT_MAX_N_1D = 2500
+PLOT_MAX_N_2D = 30
+PLOT_MAX_N_3D = 6
+
 
 # ==============================================================================
 # SAFE INPUT HELPERS
@@ -86,7 +93,7 @@ def length(message, allow_zero=False):
         x = x * units[u]
 
         if (allow_zero and x == 0) or MIN_LENGTH <= x <= MAX_LENGTH:
-            print("Length in metres =", x)
+            print("Value in metres =", x)   # FIX: wording (works for positions too)
             return x
 
         print("Length must be between", MIN_LENGTH, "m and", MAX_LENGTH, "m.")
@@ -399,13 +406,17 @@ def wavefunction_1d():
 
     # Probability density graph
     print("\n---------- PROBABILITY DENSITY GRAPH ----------")
+
+    # FIX: skip the graph when n is too large to draw reliably
+    if n > PLOT_MAX_N_1D:
+        print("n is too large to draw a reliable graph (limit n <=", PLOT_MAX_N_1D, ").")
+        print("Graph skipped. The numerical results above are still valid.")
+        return
+
     print("Generating graph...")
 
-    # Enough points to resolve every peak (capped for speed)
-    points = min(max(500, 40 * n), 100000)
-
-    if 40 * n > points:
-        print("Note: n is very large, so the graph is only approximate.")
+    # 40 points per lobe is plenty (max 100000 points at n = 2500)
+    points = max(500, 40 * n)
 
     x_values = []
     density_values = []
@@ -501,6 +512,13 @@ def wavefunction_2d():
 
     # 2D Probability density graph
     print("\n---------- 2D PROBABILITY DENSITY GRAPH ----------")
+
+    # FIX: skip the graph when nx or ny is too large to draw reliably
+    if quantum_number_x > PLOT_MAX_N_2D or quantum_number_y > PLOT_MAX_N_2D:
+        print("Quantum numbers are too large to draw a reliable graph (limit n <=", PLOT_MAX_N_2D, ").")
+        print("Graph skipped. The numerical results above are still valid.")
+        return
+
     print("Generating 2D graph...")
 
     # Grid resolution adapted to quantum numbers
@@ -660,6 +678,13 @@ def wavefunction_3d():
 
     # 3D Probability density graph
     print("\n---------- 3D PROBABILITY DENSITY GRAPH ----------")
+
+    # FIX: skip the graph when any n is too large to draw reliably
+    if max(quantum_number_x, quantum_number_y, quantum_number_z) > PLOT_MAX_N_3D:
+        print("Quantum numbers are too large to draw a reliable 3D graph (limit n <=", PLOT_MAX_N_3D, ").")
+        print("Graph skipped. The numerical results above are still valid.")
+        return
+
     print("Generating 3D graph (including zero-probability regions and nodal planes)...")
 
     # Balanced grid resolution for smooth visualization and responsive performance
@@ -694,7 +719,7 @@ def wavefunction_3d():
     fig = plt.figure(figsize=(9, 7))
     ax = fig.add_subplot(projection="3d")
 
-    cmap = plt.colormaps.get_cmap("plasma")
+    cmap = plt.get_cmap("plasma")   # FIX: works on all Matplotlib versions
     point_colors = []
     point_sizes = []
 
@@ -883,6 +908,11 @@ def transitions():
     print("\n---------- SIGNED ENERGY DIFFERENCE ----------")
     show_energy(delta)
 
+    # FIX: identical states are not "degenerate states", so check this first
+    if initial == final:
+        print("\nInitial and final states are identical. No transition occurs.")
+        return
+
     if delta > 0:
         print("\nTransition: ABSORPTION")
         print("The particle absorbs energy.")
@@ -890,7 +920,7 @@ def transitions():
         print("\nTransition: EMISSION")
         print("The particle emits energy.")
     else:
-        print("\nNo energy change occurs (degenerate states).")
+        print("\nNo energy change occurs (the two different states are degenerate).")
         return
 
     print("\n---------- ENERGY EXCHANGED ----------")
@@ -904,6 +934,10 @@ def transitions():
     print("Photon frequency =", format(frequency, ".6e"), "Hz")
     print("Photon wavelength =", format(wavelength, ".6e"), "m")
     print("Photon wavelength =", format(wavelength * 1e9, ".6f"), "nm")
+
+    # FIX: reminder that selection rules are not applied
+    print("\nNote: selection rules are not applied. For a charged particle in a")
+    print("1D well, only transitions with an odd change in n are optically allowed.")
 
 
 # ==============================================================================
@@ -935,4 +969,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # FIX: exit cleanly on Ctrl+C / Ctrl+D instead of a traceback
+    try:
+        main()
+    except (EOFError, KeyboardInterrupt):
+        print("\nProgram terminated.")
